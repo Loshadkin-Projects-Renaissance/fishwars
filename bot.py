@@ -76,11 +76,12 @@ def start(m):
         bot.send_message(creator, traceback.format_exc())
 
 def get_joinable_seas():
+    print(list(allseas.find({})))
+    print(list(allseas.find({}).sort('score', 1)))
     return list(allseas.find({}).sort('score', 1))[:2]
 
 def sea_choice(m):
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    print(get_joinable_seas())
     for sea in get_joinable_seas():
         kb.add(types.KeyboardButton(sea_ru(ids['name'])))
     bot.send_message(m.chat.id, 'Добро пожаловать! Выберите, за какое из морей вы будете сражаться.', reply_markup=kb)

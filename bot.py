@@ -109,8 +109,7 @@ def mainmenu(user):
     text=''
     text+='🐟Имя рыбы: '+user['gamename']+'\n'
     try:
-        print(user['sea'])
-        text += f"🌊Родное море: {sea_ru(user['sea'])}\n"
+        text += f"🌊Родное море: {sea_ru(user['sea'])}\n" if user['sea'] else ''
     except:
         pass
     text += f'💪Силы: {user["strenght"]}/{user["maxstrenght"]}\n'

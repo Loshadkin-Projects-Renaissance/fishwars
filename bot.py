@@ -58,7 +58,7 @@ def drop(m):
 def start(m):
     user=users.find_one({'id':m.from_user.id})
     global rest
-    if user or m.chat.type == 'private':
+    if user or m.chat.type != 'private':
         return
 
     users.insert_one(createuser(m.from_user))

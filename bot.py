@@ -63,7 +63,7 @@ def start(m):
 
     users.insert_one(createuser(m.from_user))
     
-    sea_choice(m)
+    sea_choice(m) 
 
     try:
         ref = m.text.split(' ')[1]
@@ -79,9 +79,11 @@ def get_joinable_seas():
     return allseas.find({}).sort('score', 1)[:2]
 
 def sea_choice(m):
-    kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for sea in get_joinable_seas():
+        print(sea_ru(ids['name']))
         kb.add(types.KeyboardButton(sea_ru(ids['name'])))
+    print(kb)
     bot.send_message(m.chat.id, 'Добро пожаловать! Выберите, за какое из морей вы будете сражаться.', reply_markup=kb)
 
         

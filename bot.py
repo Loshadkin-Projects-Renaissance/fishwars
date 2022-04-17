@@ -109,13 +109,14 @@ def mainmenu(user):
     text=''
     text+='🐟Имя рыбы: '+user['gamename']+'\n'
     try:
+        print(user['sea'])
         text += f"🌊Родное море: {sea_ru(user['sea'])}\n"
     except:
         pass
     text += f'💪Силы: {user["strenght"]}/{user["maxstrenght"]}\n'
     text += f'🏅Уровень эволюции: {user["lvl"]}\n'
     text += f"🧬Очки эволюции: {user['evolpoints']}/{needed}\n"
-    text += f"ss💢Атака: {user['stats']['attack']}\n"
+    text += f"💢Атака: {user['stats']['attack']}\n"
     text += f'🛡Защита: '+str(user['stats']['def'])+'\n'
     text += f'Реген сил: 1💪 / '+str(round(20*user['strenghtregencoef'], 2))+' минут\n'
     if user['freestatspoints'] > 0:

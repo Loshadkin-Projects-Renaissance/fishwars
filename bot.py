@@ -76,7 +76,8 @@ def start(m):
         bot.send_message(creator, traceback.format_exc())
 
 def get_joinable_seas():
-    return list(allseas.find({}).sort({'score': 1}))[:2]
+    print(allseas.find({}))
+    return print(allseas.find({}).sort({'score': 1}))
 
 def sea_choice(m):
     kb=types.ReplyKeyboardMarkup(resize_keyboard=True)

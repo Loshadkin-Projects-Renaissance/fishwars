@@ -43,8 +43,9 @@ def updd(m):
 @bot.message_handler(commands=['init'])
 def wipe(m):
     if m.from_user.id==creator:
+        allseas.drop()
         for sea in sealist:
-            allseas.insert_one(createsea(sea))
+            allseas.insert_one(createsea(sea)[sea])
         bot.send_message(m.chat.id, 'Моря подключены!')
 
 @bot.message_handler(commands=['wipe'])

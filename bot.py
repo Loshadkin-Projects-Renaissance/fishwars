@@ -253,12 +253,12 @@ def allmessages(m):
     if m.text=='🐟Обо мне' or m.text=='⬅️Назад':
         mainmenu(user)
         
-if m.text=='/score':
-    seas=allseas.find({})
-    text=''
-    for ids in seas:
-        text+=sea_ru(ids['name'])+' море: '+str(ids['score'])+' очков\n'
-    bot.send_message(m.chat.id, text)
+    if m.text=='/score':
+        seas=allseas.find({})
+        text=''
+        for ids in seas:
+            text+=sea_ru(ids['name'])+' море: '+str(ids['score'])+' очков\n'
+        bot.send_message(m.chat.id, text)
                 
                 
 def genreferal(user):

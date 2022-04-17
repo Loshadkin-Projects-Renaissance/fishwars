@@ -4,7 +4,6 @@ import telebot
 import time
 import random
 import threading
-from emoji import emojize
 from telebot import types
 from pymongo import MongoClient
 import traceback
@@ -13,15 +12,16 @@ from datetime import datetime
 token = os.environ['TELEGRAM_TOKEN']
 bot = telebot.TeleBot(token)
 
-britmsgs=0
-client=MongoClient(os.environ['database'])
-db=client.fishwars
-users=db.users
-allseas=db.seas
+client = MongoClient(os.environ['database'])
+db = client.fishwars
+users = db.users
+allseas = db.seas
 
-fighthours=[12, 16, 20, 0]
-sealist=['crystal', 'black', 'moon']
-officialchat=-1001418916571
+creator = 792414733
+
+fighthours = [12, 16, 20, 0]
+sealist = ['crystal', 'black', 'moon']
+officialchat = -1001418916571
 rest=False
 ban=[]
 letters=['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
@@ -31,24 +31,18 @@ allletters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n'
         'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 
            'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я']
 
-try:
-    pass
-
-except Exception as e:
-    print('Ошибка:\n', traceback.format_exc())
-    bot.send_message(441399484, traceback.format_exc())
-
  
 @bot.message_handler(commands=['update'])
 def updd(m):
-    if m.from_user.id==441399484:
-        users.update_many({},{'$set':{'skills':{}, 'inventory':{}}})
-        bot.send_message(441399484, 'yes')
+    if m.from_user.id != creator:
+        return
+    users.update_many({},{'$set':{'skills':{}, 'inventory':{}}})
+    bot.send_message(creator, 'yes')
             
             
 @bot.message_handler(commands=['drop'])
 def drop(m):
-    if m.from_user.id==441399484:
+    if m.from_user.id==creator:
         allseas.update_many({},{'$set':{'score':0}})
         bot.send_message(m.chat.id, 'Сбросил очки всем морям!')
 
@@ -56,40 +50,31 @@ def drop(m):
 def start(m):
     user=users.find_one({'id':m.from_user.id})
     global rest
-    if user==None and m.from_user.id==m.chat.id:
-        users.insert_one(createuser(m.from_user))
-        kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
-        al=allseas.find({})
-        bann=None
-        sc=0
-        for ids in al:
-            if ids['score']>sc:
-                sc=ids['score']
-        al=allseas.find({})
-        banlist=[]
-        for ids in al:
-            if ids['score']==sc:
-                banlist.append(ids['name'])
-        if len(banlist)>1:
-            banlist=[]
-        print(banlist)
-        for ids in allseas.find({}):
-            if ids['name'] not in banlist:
-                kb.add(types.KeyboardButton(sea_ru(ids['name'])))
-        bot.send_message(m.chat.id, 'Добро пожаловать! Выберите, за какое из морей вы будете сражаться.', reply_markup=kb)
-        try:
-            ref=m.text.split(' ')[1]
-            u=users.find({})
-            friend=None
-            for ids in u:
-                if ids['referal']==ref:
-                    friend=ids
-            if friend!=None:
-                users.update_one({'id':friend['id']},{'$push':{'friends':m.from_user.id}})
-                users.update_one({'id':m.from_user.id},{'$set':{'inviter':friend['id']}})
-                bot.send_message(friend['id'], m.from_user.first_name+' зашел в игру по вашей рефералке! Когда он поиграет немного, вы получите +1 к максимальной силе!')
-        except Exception as e:
-           bot.send_message(441399484, traceback.format_exc())
+    if user or m.chat.type == 'private':
+        return
+
+    users.insert_one(createuser(m.from_user))
+    
+    sea_choice(m)
+
+    try:
+        ref = m.text.split(' ')[1]
+        friend = users.find_one({'referal': ref})
+        if friend:
+            users.update_one({'id':friend['id']},{'$push':{'friends':m.from_user.id}})
+            users.update_one({'id':m.from_user.id},{'$set':{'inviter':friend['id']}})
+            bot.send_message(friend['id'], m.from_user.first_name+' зашел в игру по вашей рефералке! Когда он поиграет немного, вы получите +1 к максимальной силе!')
+    except Exception as e:
+        bot.send_message(creator, traceback.format_exc())
+
+def get_joinable_seas():
+    return allseas.find({}).sort({'score': 1})[:2]
+
+def sea_choice(m):
+    kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for sea in get_joinable_seas():
+        kb.add(types.KeyboardButton(sea_ru(ids['name'])))
+    bot.send_message(m.chat.id, 'Добро пожаловать! Выберите, за какое из морей вы будете сражаться.', reply_markup=kb)
 
         
 def mainmenu(user):
@@ -97,183 +82,182 @@ def mainmenu(user):
     kb.add(types.KeyboardButton('💢Атака'), types.KeyboardButton('🛡Защита'))
     kb.add(types.KeyboardButton('🍖🥬Питание'), types.KeyboardButton('ℹ️Инфо по игре'))
     kb.add(types.KeyboardButton('🐟Обо мне'))
+
     needed=countnextlvl(user['lastlvl'])
+
     text=''
     text+='🐟Имя рыбы: '+user['gamename']+'\n'
     try:
-        text+='🌊Родное море: '+sea_ru(user['sea'])+'\n'
+        text += f"🌊Родное море: {sea_ru(user['sea'])}\n"
     except:
         pass
-    text+='💪Силы: '+str(user['strenght'])+'/'+str(user['maxstrenght'])+'\n'
-    text+='🏅Уровень эволюции: '+str(user['lvl'])+'\n'
-    text+='🧬Очки эволюции: '+str(user['evolpoints'])+'/'+str(needed)+'\n'
-    text+='💢Атака: '+str(user['stats']['attack'])+'\n'
-    text+='🛡Защита: '+str(user['stats']['def'])+'\n'
-    text+='Реген сил: 1💪 / '+str(round(20*user['strenghtregencoef'], 2))+' минут\n'
-    if user['freestatspoints']>0:
-        text+='Доступны очки характеристик! Для использования - /upstats'+'\n'
+    text += f'💪Силы: {user["strenght"]}/{user["maxstrenght"]}\n'
+    text += f'🏅Уровень эволюции: {user["lvl"]}\n'
+    text += f"🧬Очки эволюции: {user['evolpoints']}/{needed}\n"
+    text += f"ss💢Атака: {user['stats']['attack']}\n"
+    text += f'🛡Защита: '+str(user['stats']['def'])+'\n'
+    text += f'Реген сил: 1💪 / '+str(round(20*user['strenghtregencoef'], 2))+' минут\n'
+    if user['freestatspoints'] > 0:
+        text += 'Доступны очки характеристик! Для использования - /upstats \n'
     bot.send_message(user['id'], 'Главное меню.\n'+text, reply_markup=kb)
-        
-def blockbrit():
-    ban.append(512006137)
-    bot.send_message(512006137, 'Вы заблокированы за отправку больше, чем 4х сообщений в минуту.')
-        
+
         
 @bot.message_handler()
 def allmessages(m):
     global rest
-    user=users.find_one({'id':m.from_user.id})
-    if user!=None:
-      # if m.from_user.id==512006137:
-      #      global britmsgs
-     #       britmsgs+=1
-      #      if britmsgs>4:
-       #         blockbrit()
-       if m.from_user.id not in ban:
-        if rest==False:
-            if m.from_user.id==m.chat.id:
-                if user['sea']==None:
-                    if m.text=='💎Кристальное':
-                        users.update_one({'id':user['id']},{'$set':{'sea':'crystal'}})
-                        bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 💎Кристального моря!')
-                        mainmenu(user)
-                    if m.text=='⚫️Чёрное':
-                        users.update_one({'id':user['id']},{'$set':{'sea':'black'}})
-                        bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию ⚫️Чёрного моря!')
-                        mainmenu(user)
-                    if m.text=='🌙Лунное':
-                        users.update_one({'id':user['id']},{'$set':{'sea':'moon'}})
-                        bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 🌙Лунного моря!')
-                        mainmenu(user)
-                if m.text=='🛡Защита':
-                    users.update_one({'id':user['id']},{'$set':{'battle.action':'def'}})
-                    bot.send_message(user['id'], 'Вы вплыли в оборону своего моря! Ждите следующего сражения.')
-                if m.text=='💢Атака':
-                    kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
-                    for ids in sealist:
-                        if ids!=user['sea']:
-                            kb.add(types.KeyboardButton(seatoemoj(sea=ids)))
-                    bot.send_message(user['id'], 'Выберите цель.', reply_markup=kb)
-                if m.text=='🌙' or m.text=='💎' or m.text=='⚫️':
-                    atksea=seatoemoj(emoj=m.text)
-                    if user['sea']!=atksea:
-                        users.update_one({'id':user['id']},{'$set':{'battle.action':'attack', 'battle.target':atksea}})
-                        bot.send_message(user['id'], 'Вы приготовились к атаке на '+sea_ru(atksea)+' море! Ждите начала битвы.')
-                        mainmenu(user)
-                if m.text=='ℹ️Инфо по игре':
-                    bot.send_message(m.chat.id, 'Очередной неоконченный проект Пасюка. Пока что можно только выбрать море и сражаться за него, '+
-                                     'получая для него очки, повышать уровень и улучшать свои характеристики. Битвы в 12:00, 16:00, 20:00 и 24:00 по МСК.')
-                    
-                if m.text=='/menu':
-                    mainmenu(user)
-                    
-                if m.text=='/upstats':
-                    if user['freestatspoints']>0:
-                        text='Свободные очки: '+str(user['freestatspoints'])+'.\nВыберите характеристику для прокачки.'
-                        kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
-                        kb.add(types.KeyboardButton('💢'), types.KeyboardButton('🛡'))
-                        bot.send_message(user['id'], text, reply_markup=kb)
-                    else:
-                        bot.send_message(user['id'], 'Нет свободных очков!')
-                        
-                if m.text=='💢':
-                    if user['freestatspoints']>0:
-                        users.update_one({'id':user['id']},{'$inc':{'freestatspoints':-1, 'stats.attack':1}})
-                        bot.send_message(user['id'], 'Вы стали сильнее!')
-                    else:
-                        bot.send_message(user['id'], 'Нет свободных очков!')
-                    user=users.find_one({'id':m.from_user.id})
-                    mainmenu(user)
-                        
-                if m.text=='🛡':
-                    if user['freestatspoints']>0:
-                        users.update_one({'id':user['id']},{'$inc':{'freestatspoints':-1, 'stats.def':1}})
-                        bot.send_message(user['id'], 'Вы стали сильнее!')
-                    else:
-                        bot.send_message(user['id'], 'Нет свободных очков!')
-                    user=users.find_one({'id':m.from_user.id})
-                    mainmenu(user)
-                    
-                if m.text=='/referal':
-                    if user['referal']==None:
-                        ref=genreferal(user)
-                        users.update_one({'id':user['id']},{'$set':{'referal':ref}})
-                    else:
-                        ref=user['referal']
-                    bot.send_message(user['id'], 'Вот ваша ссылка для приглашения друзей:\n'+'https://telegram.me/Fishwarsbot?start='+ref)
-                    
-                if m.text=='🍖🥬Питание':
-                    kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
-                    kb.add(types.KeyboardButton('🔝Мелководье'), types.KeyboardButton('🕳Глубины'))
-                    kb.add(types.KeyboardButton('⬅️Назад'))
-                    bot.send_message(m.chat.id, 'Выберите, где будете пытаться искать пищу. Чем больше вы питаетесь, тем быстрее идёт развитие!', reply_markup=kb)
-                    
-                if m.text=='🔝Мелководье':
-                    strenght=1
-                    if user['strenght']>=strenght:
-                        if user['status']=='free':
-                            users.update_one({'id':user['id']},{'$set':{'status':'eating'}})
-                            users.update_one({'id':user['id']},{'$inc':{'strenght':-strenght}})
-                            bot.send_message(m.chat.id, 'Вы отправились искать пищу на побережье.')
-                            t=threading.Timer(random.randint(60, 90), coastfeed, args=[user])
-                            t.start()
-                        else:
-                            bot.send_message(user['id'], 'Вы уже заняты чем-то!')
-                    else:
-                        bot.send_message(user['id'], 'Недостаточно сил - даже рыбам нужен отдых!')
-                    user=users.find_one({'id':m.from_user.id})
-                    mainmenu(user)
-                    
-                if m.text=='🕳Глубины':
-                    strenght=2
-                    if user['strenght']>=strenght:
-                        if user['status']=='free':
-                            users.update_one({'id':user['id']},{'$set':{'status':'eating'}})
-                            users.update_one({'id':user['id']},{'$inc':{'strenght':-strenght}})
-                            bot.send_message(m.chat.id, 'Вы отправились искать пищу в глубины моря.')
-                            t=threading.Timer(random.randint(60, 90), depthsfeed, args=[user])
-                            t.start()
-                        else:
-                            bot.send_message(user['id'], 'Вы уже заняты чем-то!')
-                    else:
-                        bot.send_message(user['id'], 'Недостаточно сил - даже рыбам нужен отдых!')
-                    user=users.find_one({'id':m.from_user.id})
-                    mainmenu(user)
-                    
-                if '/fishname' in m.text:
-                    try:
-                        if user['changename']>0:
-                            no=0
-                            name=m.text.split(' ')[1]
-                            if len(name)<=20 and len(name)>1:
-                                for ids in name:
-                                    if ids.lower() not in allletters:
-                                        no=1
-                            else:
-                                no=1
-                            if no==0:
-                                users.update_one({'id':user['id']},{'$set':{'gamename':name}})
-                                users.update_one({'id':user['id']},{'$inc':{'changename':-1}})
-                                bot.send_message(m.chat.id, 'Вы успешно сменили имя на "*'+name+'*"!', parse_mode='markdown')
-                            else:
-                                bot.send_message(m.chat.id, 'Длина ника должна быть от 2х до 20 символов и содержать только русские и английские буквы!')
-                        else:
-                            bot.send_message(m.chat.id, 'Попытки сменить ник закончились!')
-                    except:
-                        pass
-                    
-                if m.text=='🐟Обо мне' or m.text=='⬅️Назад':
-                    mainmenu(user)
-                    
-            if m.text=='/score':
-                seas=allseas.find({})
-                text=''
-                for ids in seas:
-                    text+=sea_ru(ids['name'])+' море: '+str(ids['score'])+' очков\n'
-                bot.send_message(m.chat.id, text)
+    user = users.find_one({'id':m.from_user.id})
+    if not user:
+        return
+    if m.from_user.id in ban:
+        return
+    if m.chat.type != 'private':
+        return
+    if rest:
+        bot.send_message(m.chat.id, 'В данный момент идёт битва морей!')
+        return
+
+    if not user['sea']:
+        if m.text=='💎Кристальное':
+            users.update_one({'id':user['id']},{'$set':{'sea':'crystal'}})
+            bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 💎Кристального моря!')
+            mainmenu(user)
+        elif m.text=='⚫️Чёрное':
+            users.update_one({'id':user['id']},{'$set':{'sea':'black'}})
+            bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию ⚫️Чёрного моря!')
+            mainmenu(user)
+        elif m.text=='🌙Лунное':
+            users.update_one({'id':user['id']},{'$set':{'sea':'moon'}})
+            bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 🌙Лунного моря!')
+            mainmenu(user)
         else:
-            if m.chat.id==m.from_user.id:
-                bot.send_message(m.chat.id, 'В данный момент идёт битва морей!')
+            sea_choice(m)
+            return
+    if m.text=='🛡Защита':
+        users.update_one({'id':user['id']},{'$set':{'battle.action':'def'}})
+        bot.send_message(user['id'], 'Вы вплыли в оборону своего моря! Ждите следующего сражения.')
+    if m.text=='💢Атака':
+        kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
+        for ids in sealist:
+            if ids!=user['sea']:
+                kb.add(types.KeyboardButton(seatoemoj(sea=ids)))
+        bot.send_message(user['id'], 'Выберите цель.', reply_markup=kb)
+    if m.text=='🌙' or m.text=='💎' or m.text=='⚫️':
+        atksea=seatoemoj(emoj=m.text)
+        if user['sea']!=atksea:
+            users.update_one({'id':user['id']},{'$set':{'battle.action':'attack', 'battle.target':atksea}})
+            bot.send_message(user['id'], 'Вы приготовились к атаке на '+sea_ru(atksea)+' море! Ждите начала битвы.')
+            mainmenu(user)
+    if m.text=='ℹ️Инфо по игре':
+        bot.send_message(m.chat.id, 'Очередной неоконченный проект Пасюка. Пока что можно только выбрать море и сражаться за него, '+
+                            'получая для него очки, повышать уровень и улучшать свои характеристики. Битвы в 12:00, 16:00, 20:00 и 24:00 по хуй его знает какому времени.')
+        
+    if m.text=='/menu':
+        mainmenu(user)
+        
+    if m.text=='/upstats':
+        if user['freestatspoints']>0:
+            text='Свободные очки: '+str(user['freestatspoints'])+'.\nВыберите характеристику для прокачки.'
+            kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
+            kb.add(types.KeyboardButton('💢'), types.KeyboardButton('🛡'))
+            bot.send_message(user['id'], text, reply_markup=kb)
+        else:
+            bot.send_message(user['id'], 'Нет свободных очков!')
+            
+    if m.text=='💢':
+        if user['freestatspoints']>0:
+            users.update_one({'id':user['id']},{'$inc':{'freestatspoints':-1, 'stats.attack':1}})
+            bot.send_message(user['id'], 'Вы стали сильнее!')
+        else:
+            bot.send_message(user['id'], 'Нет свободных очков!')
+        user=users.find_one({'id':m.from_user.id})
+        mainmenu(user)
+            
+    if m.text=='🛡':
+        if user['freestatspoints']>0:
+            users.update_one({'id':user['id']},{'$inc':{'freestatspoints':-1, 'stats.def':1}})
+            bot.send_message(user['id'], 'Вы стали сильнее!')
+        else:
+            bot.send_message(user['id'], 'Нет свободных очков!')
+        user=users.find_one({'id':m.from_user.id})
+        mainmenu(user)
+        
+    if m.text=='/referal':
+        if user['referal']==None:
+            ref=genreferal(user)
+            users.update_one({'id':user['id']},{'$set':{'referal':ref}})
+        else:
+            ref=user['referal']
+        bot.send_message(user['id'], 'Вот ваша ссылка для приглашения друзей:\n'+'https://telegram.me/Fishwarsbot?start='+ref)
+        
+    if m.text=='🍖🥬Питание':
+        kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
+        kb.add(types.KeyboardButton('🔝Мелководье'), types.KeyboardButton('🕳Глубины'))
+        kb.add(types.KeyboardButton('⬅️Назад'))
+        bot.send_message(m.chat.id, 'Выберите, где будете пытаться искать пищу. Чем больше вы питаетесь, тем быстрее идёт развитие!', reply_markup=kb)
+        
+    if m.text=='🔝Мелководье':
+        strenght=1
+        if user['strenght']>=strenght:
+            if user['status']=='free':
+                users.update_one({'id':user['id']},{'$set':{'status':'eating'}})
+                users.update_one({'id':user['id']},{'$inc':{'strenght':-strenght}})
+                bot.send_message(m.chat.id, 'Вы отправились искать пищу на побережье.')
+                t=threading.Timer(random.randint(60, 90), coastfeed, args=[user])
+                t.start()
+            else:
+                bot.send_message(user['id'], 'Вы уже заняты чем-то!')
+        else:
+            bot.send_message(user['id'], 'Недостаточно сил - даже рыбам нужен отдых!')
+        user=users.find_one({'id':m.from_user.id})
+        mainmenu(user)
+        
+    if m.text=='🕳Глубины':
+        strenght=2
+        if user['strenght']>=strenght:
+            if user['status']=='free':
+                users.update_one({'id':user['id']},{'$set':{'status':'eating'}})
+                users.update_one({'id':user['id']},{'$inc':{'strenght':-strenght}})
+                bot.send_message(m.chat.id, 'Вы отправились искать пищу в глубины моря.')
+                t=threading.Timer(random.randint(60, 90), depthsfeed, args=[user])
+                t.start()
+            else:
+                bot.send_message(user['id'], 'Вы уже заняты чем-то!')
+        else:
+            bot.send_message(user['id'], 'Недостаточно сил - даже рыбам нужен отдых!')
+        user=users.find_one({'id':m.from_user.id})
+        mainmenu(user)
+        
+    if '/fishname' in m.text:
+        try:
+            if user['changename']>0:
+                no=0
+                name=m.text.split(' ')[1]
+                if len(name)<=20 and len(name)>1:
+                    for ids in name:
+                        if ids.lower() not in allletters:
+                            no=1
+                else:
+                    no=1
+                if no==0:
+                    users.update_one({'id':user['id']},{'$set':{'gamename':name}})
+                    users.update_one({'id':user['id']},{'$inc':{'changename':-1}})
+                    bot.send_message(m.chat.id, 'Вы успешно сменили имя на "*'+name+'*"!', parse_mode='markdown')
+                else:
+                    bot.send_message(m.chat.id, 'Длина ника должна быть от 2х до 20 символов и содержать только русские и английские буквы!')
+            else:
+                bot.send_message(m.chat.id, 'Попытки сменить ник закончились!')
+        except:
+            pass
+        
+    if m.text=='🐟Обо мне' or m.text=='⬅️Назад':
+        mainmenu(user)
+        
+if m.text=='/score':
+    seas=allseas.find({})
+    text=''
+    for ids in seas:
+        text+=sea_ru(ids['name'])+' море: '+str(ids['score'])+' очков\n'
+    bot.send_message(m.chat.id, text)
                 
                 
 def genreferal(user):

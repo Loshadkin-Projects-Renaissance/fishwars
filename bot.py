@@ -85,7 +85,6 @@ def start(m):
 
 def get_joinable_seas():
     result = list(allseas.find({}).sort('score', 1))
-    print(result[0])
     if len(set([result[2]['score'], result[1]['score'], result[0]['score']])) != 3:
         return result
     else:

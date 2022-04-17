@@ -9,10 +9,11 @@ from pymongo import MongoClient
 import traceback
 from datetime import datetime
 
-token = os.environ['TELEGRAM_TOKEN']
+from config import token, mongo_url
+
 bot = telebot.TeleBot(token)
 
-client = MongoClient(os.environ['database'])
+client = MongoClient(mongo_url)
 db = client.fishwars
 users = db.users
 allseas = db.seas

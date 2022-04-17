@@ -40,6 +40,13 @@ def updd(m):
     users.update_many({},{'$set':{'skills':{}, 'inventory':{}}})
     bot.send_message(creator, 'yes')
 
+@bot.message_handler(commands=['init'])
+def wipe(m):
+    if m.from_user.id==creator:
+        for sea in sealist:
+            allseas.insert_one(createsea(sea))
+        bot.send_message(m.chat.id, 'Моря подключены!')
+
 @bot.message_handler(commands=['wipe'])
 def wipe(m):
     if m.from_user.id==creator:
@@ -370,7 +377,7 @@ def seatoemoj(sea=None, emoj=None):
     
 def endrest():
     global rest
-    rest=False
+    rest = False
     
 def seafight():
     seas={}

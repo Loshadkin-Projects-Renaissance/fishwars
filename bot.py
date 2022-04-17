@@ -39,6 +39,13 @@ def updd(m):
         return
     users.update_many({},{'$set':{'skills':{}, 'inventory':{}}})
     bot.send_message(creator, 'yes')
+
+@bot.message_handler(commands=['wipe'])
+def wipe(m):
+    if m.from_user.id==creator:
+        allseas.update_many({},{'$set':{'score':0}})
+        users.drop()
+        bot.send_message(m.chat.id, 'Вайп данных!')
             
             
 @bot.message_handler(commands=['drop'])

@@ -80,10 +80,9 @@ def get_joinable_seas():
 
 def sea_choice(m):
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    print(get_joinable_seas())
     for sea in get_joinable_seas():
-        print(sea_ru(ids['name']))
         kb.add(types.KeyboardButton(sea_ru(ids['name'])))
-    print(kb)
     bot.send_message(m.chat.id, 'Добро пожаловать! Выберите, за какое из морей вы будете сражаться.', reply_markup=kb)
 
         

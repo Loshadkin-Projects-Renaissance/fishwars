@@ -116,7 +116,7 @@ class Database:
         self.users.update_one({'id':user['id']},{'$set':{'status':'eating'}})
         self.users.update_one({'id':user['id']},{'$inc':{'strenght':-strenght}})
 
-    def change_name(user, name):
+    def change_name(self, user, name):
         self.users.update_one({'id':user['id']},{'$set':{'gamename':name}})
         self.users.update_one({'id':user['id']},{'$inc':{'changename':-1}})
 

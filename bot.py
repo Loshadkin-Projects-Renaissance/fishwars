@@ -427,14 +427,6 @@ def countnextlvl(lastlvl):
         nextlvl=10
     return nextlvl
 
-def sea_ru(sea):
-    if sea=='crystal':
-        return '💎Кристальное'
-    if sea=='black':
-        return '⚫️Чёрное'
-    if sea=='moon':
-        return '🌙Лунное'
-
    
 def createsea(sea):
     return {sea:{

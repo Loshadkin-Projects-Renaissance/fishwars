@@ -1,8 +1,11 @@
 import uuid
+import time
+from pymongo import MongoClient
+from constants import *
 
 class Database:
     def __init__(self, mongo_url):
-        db = client.fishwars
+        db = MongoClient(mongo_url).fishwars
         self.users = db.users
         self.seas = db.seas
     
@@ -23,7 +26,7 @@ class Database:
     def init_seas(self):
         self.seas.drop()
         for sea in sealist:
-            allseas.insert_one(createsea(sea)[sea])
+            self.seas.insert_one(createsea(sea)[sea])
 
     def get_joinable_seas(self):
         result = list(self.seas.find({}).sort('score', 1))
@@ -63,7 +66,7 @@ class Database:
     def upgrade_defense(self, user):
         self.users.update_one({'id':user['id']},{'$inc':{'freestatspoints':-1, 'stats.def':1}})
 
-    def form_user_doc(self):
+    def form_user_doc(self, user):
         stats = {
             'attack':1,
             'def':1
@@ -116,3 +119,37 @@ class Database:
     def change_name(user, name):
         self.users.update_one({'id':user['id']},{'$set':{'gamename':name}})
         self.users.update_one({'id':user['id']},{'$inc':{'changename':-1}})
+
+    def free_user(self, user):
+        self.users.update_one({'id':user['id']},{'$set':{'status':'free'}})
+
+    def increase_exp(self, user, exp):
+        self.users.update_one({'id':user['id']},{'$inc':{'evolpoints':exp}})
+
+    def achieve_referal_bonus(self, user):
+        self.users.update_one({'id':user['inviter']},{'$inc':{'maxstrenght':1}})
+
+    def user_evolve(self, user, count):        
+        self.users.update_one({'id':user['id']},{'$set':{'lastlvl':count, 'recievepoints': user['recievepoints']*2.1}})
+        self.users.update_one({'id':user['id']},{'$inc':{'lvl':1, 'freeevolpoints':2, 'freestatspoints':1}})
+
+    def reset_battle_actions(self):
+        self.users.update_many({},{'$set':{'battle.target':None, 'battle.action':None}})
+
+    def add_sea_score(self, sea):
+        self.seas.update_one({'name': sea['name']},{'$inc':{'score':sea['score']}})
+
+    def regen_strength(self, user):
+        self.users.update_one({'id':user['id']},{'$inc':{'strenght':1}})
+        self.users.update_one({'id':user['id']},{'$set':{'laststrenghtregen':time.time()+3*3600}})
+
+    def global_strength_regen(self, global_time):
+        for user in self.users.find({}):
+            if user['strenght']<user['maxstrenght']:
+                if not user['laststrenghtregen']:
+                    database.regen_strength(user)
+                elif global_time>=user['laststrenghtregen']+20*60*user['strenghtregencoef']:
+                    database.regen_strength(user)
+
+    def free_all_users(self):
+        self.users.update_many({},{'$set':{'status':'free'}})

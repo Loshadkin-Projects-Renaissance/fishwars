@@ -34,38 +34,48 @@ allletters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n'
 
  
 @bot.message_handler(commands=['update'])
-def updd(m):
+def update_handler(m):
     if m.from_user.id != creator:
         return
     users.update_many({},{'$set':{'skills':{}, 'inventory':{}}})
     bot.send_message(creator, 'yes')
 
 @bot.message_handler(commands=['init'])
-def wipe(m):
-    if m.from_user.id==creator:
-        allseas.drop()
-        for sea in sealist:
-            allseas.insert_one(createsea(sea)[sea])
-        bot.send_message(m.chat.id, 'Моря подключены!')
+def init_handler(m):
+    if m.from_user.id != creator:
+        return
+    allseas.drop()
+    for sea in sealist:
+        allseas.insert_one(createsea(sea)[sea])
+    bot.send_message(m.chat.id, 'Моря подключены!')
 
 @bot.message_handler(commands=['wipe'])
-def wipe(m):
-    if m.from_user.id==creator:
-        allseas.update_many({},{'$set':{'score':0}})
-        users.drop()
-        bot.send_message(m.chat.id, 'Вайп данных!')
+def wipe_handler(m):
+    if m.from_user.id != creator:
+        return
+    allseas.update_many({},{'$set':{'score':0}})
+    users.drop()
+    bot.send_message(m.chat.id, 'Вайп данных!')
+
+@bot.message_handler(commands=['score'])
+def score_handler(m):
+    seas=allseas.find({})
+    text=''
+    for ids in seas:
+        text+=sea_ru(ids['name'])+' море: '+str(ids['score'])+' очков\n'
+    bot.send_message(m.chat.id, text)
             
             
 @bot.message_handler(commands=['drop'])
 def drop(m):
-    if m.from_user.id==creator:
-        allseas.update_many({},{'$set':{'score':0}})
-        bot.send_message(m.chat.id, 'Сбросил очки всем морям!')
+    if m.from_user.id!=creator:
+        return
+    allseas.update_many({},{'$set':{'score':0}})
+    bot.send_message(m.chat.id, 'Сбросил очки всем морям!')
 
 @bot.message_handler(commands=['start'])
 def start(m):
     user=users.find_one({'id':m.from_user.id})
-    global rest
     if user or m.chat.type != 'private':
         return
 
@@ -272,13 +282,6 @@ def allmessages(m):
         
     if m.text=='🐟Обо мне' or m.text=='⬅️Назад':
         mainmenu(user)
-        
-    if m.text=='/score':
-        seas=allseas.find({})
-        text=''
-        for ids in seas:
-            text+=sea_ru(ids['name'])+' море: '+str(ids['score'])+' очков\n'
-        bot.send_message(m.chat.id, text)
                 
                 
 def genreferal(user):
@@ -471,6 +474,7 @@ def battletext(sea, who, stat):
                 intext=user
         if intext!=None:
             alreadyintext.append(intext['id'])
+            text+=seatoemoj(intext['sea'])
             text+=intext['gamename']            
             text+=', '                            
         i+=1

@@ -10,6 +10,9 @@ import traceback
 from datetime import datetime
 
 from config import token, mongo_url
+from db import Database
+
+from constants import *
 
 bot = telebot.TeleBot(token)
 
@@ -18,21 +21,14 @@ db = client.fishwars
 users = db.users
 allseas = db.seas
 
+database = Database(mongo_url)
+
 creator = 792414733
 
-fighthours = [12, 16, 20, 0]
-sealist = ['crystal', 'black', 'moon']
 officialchat = -1001721954459
 rest=False
 ban=[]
-letters=['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-        'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
 
-allletters=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-        'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 
-           'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я']
-
- 
 @bot.message_handler(commands=['update'])
 def update_handler(m):
     if m.from_user.id != creator:
@@ -44,66 +40,49 @@ def update_handler(m):
 def init_handler(m):
     if m.from_user.id != creator:
         return
-    allseas.drop()
-    for sea in sealist:
-        allseas.insert_one(createsea(sea)[sea])
+    database.init_seas()
     bot.send_message(m.chat.id, 'Моря подключены!')
 
 @bot.message_handler(commands=['wipe'])
 def wipe_handler(m):
     if m.from_user.id != creator:
         return
-    allseas.update_many({},{'$set':{'score':0}})
-    users.drop()
+    database.wipe()
     bot.send_message(m.chat.id, 'Вайп данных!')
 
 @bot.message_handler(commands=['score'])
 def score_handler(m):
-    seas=allseas.find({})
-    text=''
-    for ids in seas:
-        text+=sea_ru(ids['name'])+' море: '+str(ids['score'])+' очков\n'
-    bot.send_message(m.chat.id, text)
+    bot.send_message(m.chat.id, database.score())
             
             
 @bot.message_handler(commands=['drop'])
 def drop(m):
-    if m.from_user.id!=creator:
+    if m.from_user.id != creator:
         return
-    allseas.update_many({},{'$set':{'score':0}})
+    database.drop()
     bot.send_message(m.chat.id, 'Сбросил очки всем морям!')
 
 @bot.message_handler(commands=['start'])
 def start(m):
-    user=users.find_one({'id':m.from_user.id})
+    user = database.get_user(m.from_user.id)
     if user or m.chat.type != 'private':
         return
 
-    users.insert_one(createuser(m.from_user))
-    
-    sea_choice(m) 
+    database.create_user(m.from_user)
+    sea_choice(m)
 
-    try:
-        ref = m.text.split(' ')[1]
-        friend = users.find_one({'referal': ref})
-        if friend:
-            users.update_one({'id':friend['id']},{'$push':{'friends':m.from_user.id}})
-            users.update_one({'id':m.from_user.id},{'$set':{'inviter':friend['id']}})
-            bot.send_message(friend['id'], m.from_user.first_name+' зашел в игру по вашей рефералке! Когда он поиграет немного, вы получите +1 к максимальной силе!')
-    except Exception as e:
-        bot.send_message(creator, traceback.format_exc())
+    if m.text.count(' ') == 0:
+        return
 
-def get_joinable_seas():
-    result = list(allseas.find({}).sort('score', 1))
-    if len(set([result[2]['score'], result[1]['score'], result[0]['score']])) != 3:
-        return result
-    else:
-        return result[:2]
-
+    ref = m.text.split(' ')[1]
+    friend = database.process_referal(ref, m.from_user)
+    if not friend:
+        return
+    bot.send_message(friend, m.from_user.first_name+' зашел в игру по вашей рефералке! Когда он поиграет немного, вы получите +1 к максимальной силе!')
 
 def sea_choice(m):
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for sea in get_joinable_seas():
+    for sea in database.get_joinable_seas():
         kb.add(types.KeyboardButton(sea_ru(sea['name'])))
     bot.send_message(m.chat.id, 'Добро пожаловать! Выберите, за какое из морей вы будете сражаться.', reply_markup=kb)
 
@@ -114,7 +93,7 @@ def mainmenu(user):
     kb.add(types.KeyboardButton('🍖🥬Питание'), types.KeyboardButton('ℹ️Инфо по игре'))
     kb.add(types.KeyboardButton('🐟Обо мне'))
 
-    needed=countnextlvl(user['lastlvl'])
+    needed = countnextlvl(user['lastlvl'])
 
     text=''
     text+='🐟Имя рыбы: '+user['gamename']+'\n'
@@ -136,7 +115,7 @@ def mainmenu(user):
 @bot.message_handler()
 def allmessages(m):
     global rest
-    user = users.find_one({'id':m.from_user.id})
+    user = database.get_user(m.from_user.id)
     if not user:
         return
     if m.from_user.id in ban:
@@ -149,22 +128,22 @@ def allmessages(m):
 
     if not user['sea']:
         if m.text=='💎Кристальное':
-            users.update_one({'id':user['id']},{'$set':{'sea':'crystal'}})
+            database.choose_sea(user, 'crystal')
             bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 💎Кристального моря!')
             mainmenu(user)
         elif m.text=='⚫️Чёрное':
-            users.update_one({'id':user['id']},{'$set':{'sea':'black'}})
+            database.choose_sea(user, 'black')
             bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию ⚫️Чёрного моря!')
             mainmenu(user)
         elif m.text=='🌙Лунное':
-            users.update_one({'id':user['id']},{'$set':{'sea':'moon'}})
+            database.choose_sea(user, 'moon')
             bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 🌙Лунного моря!')
             mainmenu(user)
         else:
             sea_choice(m)
             return
     if m.text=='🛡Защита':
-        users.update_one({'id':user['id']},{'$set':{'battle.action':'def'}})
+        database.defend(user)
         bot.send_message(user['id'], 'Вы вплыли в оборону своего моря! Ждите следующего сражения.')
     if m.text=='💢Атака':
         kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -175,7 +154,7 @@ def allmessages(m):
     if m.text=='🌙' or m.text=='💎' or m.text=='⚫️':
         atksea=seatoemoj(emoj=m.text)
         if user['sea']!=atksea:
-            users.update_one({'id':user['id']},{'$set':{'battle.action':'attack', 'battle.target':atksea}})
+            database.attack(user, atksea)
             bot.send_message(user['id'], 'Вы приготовились к атаке на '+sea_ru(atksea)+' море! Ждите начала битвы.')
             mainmenu(user)
     if m.text=='ℹ️Инфо по игре':
@@ -196,28 +175,24 @@ def allmessages(m):
             
     if m.text=='💢':
         if user['freestatspoints']>0:
-            users.update_one({'id':user['id']},{'$inc':{'freestatspoints':-1, 'stats.attack':1}})
+            database.upgrade_attack(user)
             bot.send_message(user['id'], 'Вы стали сильнее!')
         else:
             bot.send_message(user['id'], 'Нет свободных очков!')
-        user=users.find_one({'id':m.from_user.id})
+        user = database.get_user(user['id'])
         mainmenu(user)
             
     if m.text=='🛡':
         if user['freestatspoints']>0:
-            users.update_one({'id':user['id']},{'$inc':{'freestatspoints':-1, 'stats.def':1}})
+            database.upgrade_defense(user)
             bot.send_message(user['id'], 'Вы стали сильнее!')
         else:
             bot.send_message(user['id'], 'Нет свободных очков!')
-        user=users.find_one({'id':m.from_user.id})
+        user = database.get_user(user['id'])
         mainmenu(user)
         
     if m.text=='/referal':
-        if user['referal']==None:
-            ref=genreferal(user)
-            users.update_one({'id':user['id']},{'$set':{'referal':ref}})
-        else:
-            ref=user['referal']
+        ref = database.get_referal(user)
         bot.send_message(user['id'], 'Вот ваша ссылка для приглашения друзей:\n'+'https://telegram.me/Fishwarsbot?start='+ref)
         
     if m.text=='🍖🥬Питание':
@@ -230,8 +205,7 @@ def allmessages(m):
         strenght=1
         if user['strenght']>=strenght:
             if user['status']=='free':
-                users.update_one({'id':user['id']},{'$set':{'status':'eating'}})
-                users.update_one({'id':user['id']},{'$inc':{'strenght':-strenght}})
+                database.go_eating(user, strenght)
                 bot.send_message(m.chat.id, 'Вы отправились искать пищу на побережье.')
                 t=threading.Timer(random.randint(60, 90), coastfeed, args=[user])
                 t.start()
@@ -239,15 +213,14 @@ def allmessages(m):
                 bot.send_message(user['id'], 'Вы уже заняты чем-то!')
         else:
             bot.send_message(user['id'], 'Недостаточно сил - даже рыбам нужен отдых!')
-        user=users.find_one({'id':m.from_user.id})
+        user = database.get_user(user['id'])
         mainmenu(user)
         
     if m.text=='🕳Глубины':
         strenght=2
         if user['strenght']>=strenght:
             if user['status']=='free':
-                users.update_one({'id':user['id']},{'$set':{'status':'eating'}})
-                users.update_one({'id':user['id']},{'$inc':{'strenght':-strenght}})
+                database.go_eating(user, strenght)
                 bot.send_message(m.chat.id, 'Вы отправились искать пищу в глубины моря.')
                 t=threading.Timer(random.randint(60, 90), depthsfeed, args=[user])
                 t.start()
@@ -255,48 +228,27 @@ def allmessages(m):
                 bot.send_message(user['id'], 'Вы уже заняты чем-то!')
         else:
             bot.send_message(user['id'], 'Недостаточно сил - даже рыбам нужен отдых!')
-        user=users.find_one({'id':m.from_user.id})
+        user = database.get_user(user['id'])
         mainmenu(user)
         
     if '/fishname' in m.text:
-        try:
-            if user['changename']>0:
-                no=0
-                name=m.text.split(' ')[1]
-                if len(name)<=20 and len(name)>1:
-                    for ids in name:
-                        if ids.lower() not in allletters:
-                            no=1
-                else:
-                    no=1
-                if no==0:
-                    users.update_one({'id':user['id']},{'$set':{'gamename':name}})
-                    users.update_one({'id':user['id']},{'$inc':{'changename':-1}})
-                    bot.send_message(m.chat.id, 'Вы успешно сменили имя на "*'+name+'*"!', parse_mode='markdown')
-                else:
-                    bot.send_message(m.chat.id, 'Длина ника должна быть от 2х до 20 символов и содержать только русские и английские буквы!')
-            else:
-                bot.send_message(m.chat.id, 'Попытки сменить ник закончились!')
-        except:
-            pass
+        if m.text.count(' ') == 0:
+            bot.send_message(m.chat.id, 'Сменить ник можно командой /fishname ник.')
+            return
+        if user['changename']>0:
+            no=0
+            name=m.text.split(' ')[1]
+            if not 2<=len(name)<=20 or not name.isalnum():
+                bot.send_message(m.chat.id, 'Длина ника должна быть от 2х до 20 символов и содержать только русские и английские буквы!')
+                return
+            database.change_name(user, name)
+            bot.send_message(m.chat.id, 'Вы успешно сменили имя на "*'+name+'*"!', parse_mode='markdown')
+        else:
+            bot.send_message(m.chat.id, 'Попытки сменить ник закончились!')
         
     if m.text=='🐟Обо мне' or m.text=='⬅️Назад':
         mainmenu(user)
                 
-                
-def genreferal(user):
-    u=users.find({})
-    ref=''
-    allref=[]
-    for ids in users.find({}):
-        allref.append(ids['referal'])
-    while len(ref)<32:
-        ref+=random.choice(letters)
-    while ref in allref:
-        ref=''
-        while len(ref)<32:
-            ref+=random.choice(letters)
-    return ref
 
 
 def coastfeed(user):
@@ -483,42 +435,6 @@ def battletext(sea, who, stat):
         text+='.'
     text+='\n\n'
     return text
-            
-            
-def createuser(user):
-    stats={
-        'attack':1,
-        'def':1
-    }
-    battle={
-        'action':None,
-        'target':None
-    }
-    return {
-        'id':user.id,
-        'name':user.first_name,
-        'gamename':user.first_name,
-        'stats':stats,
-        'sea':None,
-        'status':'free',
-        'maxstrenght':8,
-        'strenght':8,
-        'agility':1,                     # 1 = 100%
-        'battle':battle,
-        'evolpoints':0,
-        'lvl':1,
-        'inventory':{},
-        'freestatspoints':0,
-        'freeevolpoints':0,
-        'lastlvl':0,
-        'strenghtregencoef':1,       # Чем меньше, тем лучше
-        'laststrenghtregen':None,
-        'recievepoints':1,                # 1 = 1 exp
-        'pointmodifer':1,                 # 1 = 100%
-        'referal':None,
-        'changename':3,
-        'skills':{}
-    }
 
 def regenstrenght(user):
     users.update_one({'id':user['id']},{'$inc':{'strenght':1}})

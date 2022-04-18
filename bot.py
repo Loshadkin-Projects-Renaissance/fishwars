@@ -387,7 +387,7 @@ def seafight():
     text+='Начисленные очки:\n\n'
     for ids in seas:
         text+=sea_ru(seas[ids]['name'])+' море: '+str(seas[ids]['score'])+' очков\n'
-        db.add_sea_score(self, seas[ids]):
+        db.add_sea_score(self, seas[ids])
     db.reset_battle_actions()
     bot.send_message(officialchat, 'Результаты битвы:\n\n'+text)
             

@@ -147,9 +147,9 @@ class Database:
         for user in self.users.find({}):
             if user['strenght']<user['maxstrenght']:
                 if not user['laststrenghtregen']:
-                    database.regen_strength(user)
+                    self.regen_strength(user)
                 elif global_time>=user['laststrenghtregen']+20*60*user['strenghtregencoef']:
-                    database.regen_strength(user)
+                    self.regen_strength(user)
 
     def free_all_users(self):
         self.users.update_many({},{'$set':{'status':'free'}})

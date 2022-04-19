@@ -5,6 +5,7 @@ import threading
 from telebot import types, TeleBot
 import traceback
 from datetime import datetime
+import pytz
 
 from config import token, mongo_url
 from db import Database
@@ -469,19 +470,17 @@ def createsea(sea):
 def timecheck():
     global battle_going
 
-    globaltime = time.time()+3*3600
-    ctime = str(datetime.fromtimestamp(globaltime)).split(' ')[1]
-    chour = int(ctime.split(':')[0])
-    cminute = int(ctime.split(':')[1])
-    csecond = float(ctime.split(':')[2])
-    csecond = round(csecond, 0)
+    now = datetime.now(pytz.timezone('Europe/Kyiv') )
+    hour = now.hour
+    minute = now.minute
+    second = now.second
 
-    if chour in fighthours and battle_going == False and cminute == 0:
+    if hour in fighthours and battle_going == False and minute == 0:
         seafight()
         battle_going = True
         t = threading.Timer(120, endrest).start()
     db.global_strength_regen(globaltime)
-    if csecond == 0:
+    if second == 0:
         global ban
         ban = []
     t = threading.Timer(1, timecheck).start()

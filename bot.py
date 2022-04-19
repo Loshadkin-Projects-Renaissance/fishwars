@@ -21,6 +21,15 @@ officialchat = -1001721954459
 rest=False
 ban=[]
 
+
+@bot.message_handler(commands=['battle'])
+def init_handler(m):
+    if m.from_user.id != creator:
+        return
+    seafight()
+    bot.send_message(m.chat.id, 'Война!')
+
+
 @bot.message_handler(commands=['init'])
 def init_handler(m):
     if m.from_user.id != creator:

@@ -10,56 +10,64 @@ from config import token, mongo_url
 from db import Database
 
 from constants import *
+from lambdas import *
 
 bot = TeleBot(token)
 
 db = Database(mongo_url)
 
-creator = 792414733
-
 officialchat = -1001721954459
-rest=False
-ban=[]
+battle_going = False
 
 
-@bot.message_handler(commands=['battle'])
+@bot.message_handler(commands=['battle'], func=lambda c: admin_command(c))
 def init_handler(m):
-    if m.from_user.id != creator:
-        return
     seafight()
     bot.send_message(m.chat.id, 'Война!')
 
 
-@bot.message_handler(commands=['init'])
+@bot.message_handler(commands=['init'], func=lambda c: admin_command(c))
 def init_handler(m):
-    if m.from_user.id != creator:
-        return
     db.init_seas()
     bot.send_message(m.chat.id, 'Моря подключены!')
 
-@bot.message_handler(commands=['wipe'])
+
+@bot.message_handler(commands=['wipe'], func=lambda c: admin_command(c))
 def wipe_handler(m):
-    if m.from_user.id != creator:
-        return
     db.wipe()
     bot.send_message(m.chat.id, 'Вайп данных!')
+
 
 @bot.message_handler(commands=['score'])
 def score_handler(m):
     bot.send_message(m.chat.id, db.score())
-            
-            
-@bot.message_handler(commands=['drop'])
-def drop(m):
-    if m.from_user.id != creator:
-        return
+
+
+@bot.message_handler(commands=['drop'], func=lambda c: admin_command(c))
+def drop_handler(m):
     db.drop()
     bot.send_message(m.chat.id, 'Сбросил очки всем морям!')
 
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['fishname'], func=lambda c: pm_command(c))
+def fishname_handler(m):
+    if m.text.count(' ') == 0:
+        bot.send_message(m.chat.id, 'Сменить ник можно командой /fishname ник.')
+        return
+    if user['changename']>0:
+        no=0
+        name=m.text.split(' ')[1]
+        if not 2<=len(name)<=20 or not name.isalnum():
+            bot.send_message(m.chat.id, 'Длина ника должна быть от 2х до 20 символов и содержать только русские и английские буквы!')
+            return
+        db.change_name(user, name)
+        bot.send_message(m.chat.id, 'Вы успешно сменили имя на "*'+name+'*"!', parse_mode='markdown')
+    else:
+        bot.send_message(m.chat.id, 'Попытки сменить ник закончились!')
+
+
+@bot.message_handler(commands=['start'], func=lambda c: pm_command(c))
 def start(m):
-    user = db.get_user(m.from_user.id)
-    if user or m.chat.type != 'private':
+    if db.get_user(m.from_user.id):
         return
 
     db.create_user(m.from_user)
@@ -106,51 +114,45 @@ def mainmenu(user):
     bot.send_message(user['id'], 'Главное меню.\n'+text, reply_markup=kb)
 
         
-@bot.message_handler()
+@bot.message_handler(func=lambda c: pm_command(c))
 def allmessages(m):
-    global rest
+    global battle_going
     user = db.get_user(m.from_user.id)
     if not user:
         return
     if m.from_user.id in ban:
         return
-    if m.chat.type != 'private':
-        return
-    if rest:
+    if battle_going:
         bot.send_message(m.chat.id, 'В данный момент идёт битва морей!')
         return
 
     if not user['sea']:
-        if m.text=='💎Кристальное':
-            db.choose_sea(user, 'crystal')
-            bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 💎Кристального моря!')
-            mainmenu(user)
-        elif m.text=='⚫️Чёрное':
-            db.choose_sea(user, 'black')
-            bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию ⚫️Чёрного моря!')
-            mainmenu(user)
-        elif m.text=='🌙Лунное':
-            db.choose_sea(user, 'moon')
-            bot.send_message(user['id'], 'Теперь вы сражаетесь за территорию 🌙Лунного моря!')
+        if m.text in sea_localization:
+            db.choose_sea(user, sea_ru(m.text))
+            bot.send_message(user['id'], f'Теперь вы сражаетесь за {m.text} море!')
             mainmenu(user)
         else:
             sea_choice(m)
             return
+
     if m.text=='🛡Защита':
         db.defend(user)
         bot.send_message(user['id'], 'Вы вплыли в оборону своего моря! Ждите следующего сражения.')
+
     if m.text=='💢Атака':
         kb=types.ReplyKeyboardMarkup(resize_keyboard=True)
         for ids in sealist:
             if ids!=user['sea']:
                 kb.add(types.KeyboardButton(seatoemoj(sea=ids)))
         bot.send_message(user['id'], 'Выберите цель.', reply_markup=kb)
-    if m.text=='🌙' or m.text=='💎' or m.text=='⚫️':
+        
+    if m.text in emojies_sea:
         atksea=seatoemoj(emoj=m.text)
         if user['sea']!=atksea:
             db.attack(user, atksea)
             bot.send_message(user['id'], 'Вы приготовились к атаке на '+sea_ru(atksea)+' море! Ждите начала битвы.')
             mainmenu(user)
+
     if m.text=='ℹ️Инфо по игре':
         bot.send_message(m.chat.id, 'Очередной неоконченный проект Пасюка. Пока что можно только выбрать море и сражаться за него, '+
                             'получая для него очки, повышать уровень и улучшать свои характеристики. Битвы в 12:00, 16:00, 20:00 и 24:00 по хуй его знает какому времени.')
@@ -225,21 +227,6 @@ def allmessages(m):
         user = db.get_user(user['id'])
         mainmenu(user)
         
-    if '/fishname' in m.text:
-        if m.text.count(' ') == 0:
-            bot.send_message(m.chat.id, 'Сменить ник можно командой /fishname ник.')
-            return
-        if user['changename']>0:
-            no=0
-            name=m.text.split(' ')[1]
-            if not 2<=len(name)<=20 or not name.isalnum():
-                bot.send_message(m.chat.id, 'Длина ника должна быть от 2х до 20 символов и содержать только русские и английские буквы!')
-                return
-            db.change_name(user, name)
-            bot.send_message(m.chat.id, 'Вы успешно сменили имя на "*'+name+'*"!', parse_mode='markdown')
-        else:
-            bot.send_message(m.chat.id, 'Попытки сменить ник закончились!')
-        
     if m.text=='🐟Обо мне' or m.text=='⬅️Назад':
         mainmenu(user)
                 
@@ -308,25 +295,10 @@ def recieveexp(user, exp):
             db.achieve_referal_bonus(user)
             bot.send_message(user['inviter'], user['gamename']+' освоился в игре! Вы получаете +1 к выносливости.')
 
-            
-def seatoemoj(sea=None, emoj=None):
-    if sea=='moon':
-        return '🌙'
-    if sea=='crystal':
-        return '💎'
-    if sea=='black':
-        return '⚫️'
-    if emoj=='⚫️':
-        return 'black'
-    if emoj=='💎':
-        return 'crystal'
-    if emoj=='🌙':
-        return 'moon'
-
     
 def endrest():
-    global rest
-    rest = False
+    global battle_going
+    battle_going = False
     
 def seafight():
     seas={}
@@ -452,14 +424,14 @@ def createsea(sea):
 def timecheck():
     globaltime=time.time()+3*3600
     ctime=str(datetime.fromtimestamp(globaltime)).split(' ')[1]
-    global rest
+    global battle_going
     chour=int(ctime.split(':')[0])
     cminute=int(ctime.split(':')[1])
     csecond=float(ctime.split(':')[2])
     csecond=round(csecond, 0)
-    if chour in fighthours and rest==False and cminute==0:
+    if chour in fighthours and battle_going==False and cminute==0:
         seafight()
-        rest=True
+        battle_going=True
         t=threading.Timer(120, endrest)
         t.start()
     db.global_strength_regen(globaltime)

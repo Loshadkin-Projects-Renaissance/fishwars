@@ -172,6 +172,9 @@ class Database:
     def global_strength_regen(self, global_time):
         users = self.users.find({"$expr": {'$gt': ['$maxstrenght', '$strenght']}})
         for user in users:
+            print(user['gamename'])
+            print(user['laststrenghtregen'])
+            print(global_time)
             if not user['laststrenghtregen']:
                 self.regen_strength(user)
             elif global_time>=user['laststrenghtregen']+20*60*user['strenghtregencoef']:

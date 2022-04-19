@@ -2,3 +2,4 @@ pyTelegramBotAPI
 emoji
 pymongo
 dnspython
+pytz

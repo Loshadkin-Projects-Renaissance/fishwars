@@ -475,7 +475,7 @@ def timecheck():
     minute = now.minute
     second = now.second
 
-    globaltime = now.time()
+    globaltime = now.timestamp()
 
     print(hour, minute, second)
 

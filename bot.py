@@ -475,6 +475,8 @@ def timecheck():
     minute = now.minute
     second = now.second
 
+    globaltime = now.time()
+
     print(hour, minute, second)
 
     if hour in fighthours and battle_going == False and minute == 0:

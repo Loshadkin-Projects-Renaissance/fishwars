@@ -472,6 +472,11 @@ def timecheck():
 
 timecheck()
 
+for user in db.users.find({}):
+    if user['status'] != 'free':
+        coastfeed(user)
+        bot.send_message(user['id'], 'Вы вернулись досрочно из-за... погодных условий!')
+
 db.free_all_users()
 
 print('7777')

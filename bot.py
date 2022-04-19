@@ -33,6 +33,11 @@ def joke_handler(m):
     bot.send_message(m.chat.id, f'Настройка {setting} выставлена на {result}.')
 
 
+@bot.message_handler(commands=['reset_regen'], func=lambda c: admin_command(c))
+def reset_regen_handler(m):
+    db.users.update_many({}, {'$set': {'laststrenghtregen': 0}})
+    bot.reply_to(m, 'Успешно.')
+
 @bot.message_handler(commands=['admin'], func=lambda c: admin_command(c))
 def joke_handler(m):
     bot.send_message(m.chat.id, 'Ваша рыбка получила 9999 очков эволюции! (шутка)')

@@ -171,6 +171,7 @@ class Database:
 
     def global_strength_regen(self, global_time):
         users = self.users.find({"$expr": {'$gt': ['$maxstrenght', '$strenght']}})
+        print(users.size())
         for user in users:
             if not user['laststrenghtregen']:
                 self.regen_strength(user)

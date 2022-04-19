@@ -492,9 +492,7 @@ settings = db.get_settings()
 
 users_rebooted = 0
 
-for user in db.users.find({}):
-    if user['status'] == 'free':
-        continue
+for user in db.users.find({'status': {'$ne': 'free'}}):
     if settings['reboot_return']:
         coastfeed(user)
         bot.send_message(user['id'], 'Вы нашли еду быстрее чем обычно!')

@@ -20,6 +20,23 @@ officialchat = -1001721954459
 battle_going = False
 
 
+@bot.message_handler(commands=['switch'], func=lambda c: admin_command(c))
+def joke_handler(m):
+    if m.text.count(' ') == 0:
+        return
+    setting = m.text.split(' ', 1)[1]
+    result = db.switch_setting(setting)
+    if result is None:
+        bot.send_message(m.chat.id, 'Ничего не получилось.')
+        return
+    bot.send_message(m.chat.id, f'Настройка {setting} выставлена на {result}.')
+
+
+@bot.message_handler(commands=['admin'], func=lambda c: admin_command(c))
+def joke_handler(m):
+    bot.send_message(m.chat.id, 'Ваша рыбка получила 9999 очков эволюции! (шутка)')
+
+
 @bot.message_handler(commands=['battle'], func=lambda c: admin_command(c))
 def init_handler(m):
     seafight()
@@ -472,10 +489,18 @@ def timecheck():
 
 timecheck()
 
+settings = db.get_settings()
+
 for user in db.users.find({}):
-    if user['status'] != 'free':
+    if user['status'] == 'free':
+        continue
+    if settings['reboot_return']:
         coastfeed(user)
-        bot.send_message(user['id'], 'Вы вернулись досрочно из-за... погодных условий!')
+        bot.send_message(user['id'], 'Вы нашли еду быстрее чем обычно!')
+    else:
+        threading.Timer(random.randint(60, 90), coastfeed, args=[user]).start()
+        bot.send_message(user['id'], 'Вы задерживаетесь из-за... погодных условий, но вы не сдаетесь.')
+        
 
 db.free_all_users()
 

@@ -8,7 +8,33 @@ class Database:
         db = MongoClient(mongo_url).fishwars
         self.users = db.users
         self.seas = db.seas
+        self.settings = db.settings
+
+        self.init_settings()
+
+    def init_settings(self):
+        settings = self.settings.find_one({})
+        if not settings:
+            self.settings.insert_one({
+                'sealist': sealist,
+                'fighthours': fighthours,
+                'creator': creator,
+                'reboot_return': False
+            })
     
+    def get_settings(self):
+        return self.settings.find_one({})
+
+    def switch_setting(self, setting):
+        settings = self.get_settings()
+        if setting not in settings:
+            return None
+        setting_value = settings.get(setting)
+        if setting_value:
+            self.settings.update_one({}, {setting: not setting_value})
+            return not setting_value
+
+
     def drop(self):
         self.seas.update_many({},{'$set':{'score':0}})
 

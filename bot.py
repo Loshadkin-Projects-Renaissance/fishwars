@@ -470,7 +470,7 @@ def createsea(sea):
 def timecheck():
     global battle_going
 
-    now = datetime.now(pytz.timezone('Ukraine/Kyiv') )
+    now = datetime.now(pytz.timezone('Ukraine/Kiev') )
     hour = now.hour
     minute = now.minute
     second = now.second

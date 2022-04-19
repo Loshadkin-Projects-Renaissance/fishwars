@@ -170,12 +170,12 @@ class Database:
         self.users.update_one({'id':user['id']},{'$set':{'laststrenghtregen':time.time()+3*3600}})
 
     def global_strength_regen(self, global_time):
-        for user in self.users.find({}):
-            if user['strenght']<user['maxstrenght']:
-                if not user['laststrenghtregen']:
-                    self.regen_strength(user)
-                elif global_time>=user['laststrenghtregen']+20*60*user['strenghtregencoef']:
-                    self.regen_strength(user)
+        users = self.users.find({"$expr": {'$gt': ['$maxstrenght', '$strenght']}})
+        for user in users:
+            if not user['laststrenghtregen']:
+                self.regen_strength(user)
+            elif global_time>=user['laststrenghtregen']+20*60*user['strenghtregencoef']:
+                self.regen_strength(user)
 
     def free_all_users(self):
         self.users.update_many({},{'$set':{'status':'free'}})

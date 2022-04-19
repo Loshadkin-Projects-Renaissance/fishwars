@@ -475,15 +475,11 @@ def timecheck():
     minute = now.minute
     second = now.second
 
-    globaltime = now.timestamp()
-
-    print(hour, minute, second)
-
     if hour in fighthours and battle_going == False and minute == 0:
         seafight()
         battle_going = True
         t = threading.Timer(120, endrest).start()
-    db.global_strength_regen(globaltime)
+    db.global_strength_regen(now.timestamp())
     if second == 0:
         global ban
         ban = []
@@ -494,6 +490,8 @@ timecheck()
 
 settings = db.get_settings()
 
+users_rebooted = 0
+
 for user in db.users.find({}):
     if user['status'] == 'free':
         continue
@@ -503,7 +501,8 @@ for user in db.users.find({}):
     else:
         threading.Timer(random.randint(60, 90), coastfeed, args=[user]).start()
         bot.send_message(user['id'], 'Вы задерживаетесь из-за... погодных условий, но вы не сдаетесь.')
-        
+    users_rebooted += 1
+bot.send_message(creator, f'Вы доебались до {users_rebooted} игроков!')
 
 db.free_all_users()
 

@@ -167,13 +167,13 @@ class Database:
 
     def regen_strength(self, user):
         self.users.update_one({'id':user['id']},{'$inc':{'strenght':1}})
-        self.users.update_one({'id':user['id']},{'$set':{'laststrenghtregen':time.time()+3*3600}})
+        self.users.update_one({'id':user['id']},{'$set':{'laststrenghtregen':time.time()}})
 
     def global_strength_regen(self, global_time):
         users = self.users.find({"$expr": {'$gt': ['$maxstrenght', '$strenght']}})
         for user in users:
             print(user['gamename'])
-            print(user['laststrenghtregen'])
+            print(user['laststrenghtregen']+20*60*user['strenghtregencoef'])
             print(global_time)
             if not user['laststrenghtregen']:
                 self.regen_strength(user)
